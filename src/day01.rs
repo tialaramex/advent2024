@@ -16,8 +16,12 @@ pub fn a(filename: &str) {
     let ctxt = readfile(filename);
     for line in ctxt.lines() {
         let mut numbers = line.split_ascii_whitespace();
-        let l = numbers.next().expect("There should be a left number on each line");
-        let r = numbers.next().expect("There should also be a right number on each line");
+        let l = numbers
+            .next()
+            .expect("There should be a left number on each line");
+        let r = numbers
+            .next()
+            .expect("There should also be a right number on each line");
         assert_eq!(numbers.next(), None);
         let l: Number = l.parse().expect("LHS should be a number");
         let r: Number = r.parse().expect("RHS should be a number");
@@ -27,7 +31,7 @@ pub fn a(filename: &str) {
     left.sort_unstable();
     right.sort_unstable();
 
-    let pairs = left.into_iter().zip(right.into_iter());
+    let pairs = left.into_iter().zip(right);
     let total: Number = pairs.map(diff).sum();
     println!("Total distance between lists is {total}");
 }
@@ -40,8 +44,12 @@ pub fn b(filename: &str) {
     let ctxt = readfile(filename);
     for line in ctxt.lines() {
         let mut numbers = line.split_ascii_whitespace();
-        let l = numbers.next().expect("There should be a left number on each line");
-        let r = numbers.next().expect("There should also be a right number on each line");
+        let l = numbers
+            .next()
+            .expect("There should be a left number on each line");
+        let r = numbers
+            .next()
+            .expect("There should also be a right number on each line");
         assert_eq!(numbers.next(), None);
         let l: Number = l.parse().expect("LHS should be a number");
         let r: Number = r.parse().expect("RHS should be a number");
