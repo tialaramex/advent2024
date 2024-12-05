@@ -71,13 +71,13 @@ fn xmas(words: &Search, x: isize, y: isize) -> bool {
         return false;
     }
 
-    match cross(words, x, y) {
-        (Letter::M, Letter::S, Letter::M, Letter::S) => true,
-        (Letter::S, Letter::M, Letter::M, Letter::S) => true,
-        (Letter::M, Letter::S, Letter::S, Letter::M) => true,
-        (Letter::S, Letter::M, Letter::S, Letter::M) => true,
-        _ => false,
-    }
+    matches!(
+        cross(words, x, y),
+        (Letter::M, Letter::S, Letter::M, Letter::S)
+            | (Letter::S, Letter::M, Letter::M, Letter::S)
+            | (Letter::M, Letter::S, Letter::S, Letter::M)
+            | (Letter::S, Letter::M, Letter::S, Letter::M)
+    )
 }
 
 pub fn a(filename: &str) {
