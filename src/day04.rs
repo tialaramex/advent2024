@@ -25,180 +25,59 @@ impl From<char> for Letter {
 
 type Search = Map<Letter>;
 
+fn check_dir(words: &Search, x: isize, y: isize, lr: isize, ud: isize) -> bool {
+    words.read(x + lr, y + ud).is_some_and(|l| l == Letter::M)
+        && words
+            .read(x + lr + lr, y + ud + ud)
+            .is_some_and(|l| l == Letter::A)
+        && words
+            .read(x + lr + lr + lr, y + ud + ud + ud)
+            .is_some_and(|l| l == Letter::S)
+}
+
 fn check(words: &Search, x: isize, y: isize) -> usize {
     if words.read(x, y).is_some_and(|letter| letter != Letter::X) {
         return 0;
     }
 
     let mut count = 0;
-    if words
-        .read(x + 1, y)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 2, y)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x + 3, y)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
+    for (dx, dy) in [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ] {
+        if check_dir(words, x, y, dx, dy) {
+            count += 1;
+        }
     }
-    if words
-        .read(x - 1, y)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x - 2, y)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x - 3, y)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x, y + 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x, y + 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x, y + 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x, y - 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x, y - 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x, y - 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x - 1, y - 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x - 2, y - 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x - 3, y - 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x + 1, y - 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 2, y - 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x + 3, y - 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x - 1, y + 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x - 2, y + 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x - 3, y + 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-    if words
-        .read(x + 1, y + 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 2, y + 2)
-            .is_some_and(|letter| letter == Letter::A)
-        && words
-            .read(x + 3, y + 3)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-
     count
 }
 
-fn xmas(words: &Search, x: isize, y: isize) -> usize {
+fn cross(words: &Search, x: isize, y: isize) -> (Letter, Letter, Letter, Letter) {
+    let tl = words.read(x - 1, y - 1).unwrap_or(Letter::Other);
+    let tr = words.read(x + 1, y - 1).unwrap_or(Letter::Other);
+    let bl = words.read(x - 1, y + 1).unwrap_or(Letter::Other);
+    let br = words.read(x + 1, y + 1).unwrap_or(Letter::Other);
+    (tl, br, tr, bl)
+}
+
+fn xmas(words: &Search, x: isize, y: isize) -> bool {
     if words.read(x, y).is_some_and(|letter| letter != Letter::A) {
-        return 0;
+        return false;
     }
 
-    let mut count = 0;
-    if words
-        .read(x - 1, y - 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x - 1, y + 1)
-            .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 1, y - 1)
-            .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x + 1, y + 1)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
+    match cross(words, x, y) {
+        (Letter::M, Letter::S, Letter::M, Letter::S) => true,
+        (Letter::S, Letter::M, Letter::M, Letter::S) => true,
+        (Letter::M, Letter::S, Letter::S, Letter::M) => true,
+        (Letter::S, Letter::M, Letter::S, Letter::M) => true,
+        _ => false,
     }
-    if words
-        .read(x - 1, y - 1)
-        .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x - 1, y + 1)
-            .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x + 1, y - 1)
-            .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 1, y + 1)
-            .is_some_and(|letter| letter == Letter::M)
-    {
-        count += 1;
-    }
-    if words
-        .read(x - 1, y - 1)
-        .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x - 1, y + 1)
-            .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 1, y - 1)
-            .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x + 1, y + 1)
-            .is_some_and(|letter| letter == Letter::M)
-    {
-        count += 1;
-    }
-    if words
-        .read(x - 1, y - 1)
-        .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x - 1, y + 1)
-            .is_some_and(|letter| letter == Letter::S)
-        && words
-            .read(x + 1, y - 1)
-            .is_some_and(|letter| letter == Letter::M)
-        && words
-            .read(x + 1, y + 1)
-            .is_some_and(|letter| letter == Letter::S)
-    {
-        count += 1;
-    }
-
-    count
 }
 
 pub fn a(filename: &str) {
@@ -216,11 +95,13 @@ pub fn a(filename: &str) {
 pub fn b(filename: &str) {
     let ctxt = readfile(filename);
     let words: Search = ctxt.value().parse().expect("should be a word search");
-    let mut total = 0;
+    let mut count = 0;
     for y in words.y() {
         for x in words.x() {
-            total += xmas(&words, x, y);
+            if xmas(&words, x, y) {
+                count += 1;
+            }
         }
     }
-    println!("{total} X-MAS found");
+    println!("{count} X-MAS found");
 }
