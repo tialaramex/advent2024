@@ -16,7 +16,7 @@ fn main() {
         let fun = format!("day{:0>3}", day.to_ascii_lowercase());
         let day = day.trim_end_matches(char::is_alphabetic);
         let file = if let Some(extra) = args.next() {
-            format!("{:0>2}{extra}", day)
+            format!("test-data/{:0>2}{extra}", day)
         } else {
             format!("{:0>2}", day)
         };
