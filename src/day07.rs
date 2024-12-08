@@ -49,30 +49,38 @@ pub fn a(filename: &str) {
     println!("Calibration result is {total}");
 }
 
+fn last_digits(n: Num, d: Num) -> Option<Num> {
+    let mut decimal = 10;
+    while decimal <= d {
+        decimal *= 10;
+    }
+    if n > decimal && n % decimal == d {
+        Some(n / decimal)
+    } else {
+        None
+    }
+}
+
 fn three(line: &str) -> Num {
     let (goal, first, mut nums) = handle(line);
-    // Use nums as a stack
-    nums.reverse();
     let mut sums: Vec<Num> = Vec::new();
-    sums.push(first);
-    while let Some(b) = nums.pop() {
+    sums.push(goal);
+    while let Some(d) = nums.pop() {
         let mut next: Vec<Num> = Vec::with_capacity(sums.len() * 3);
-        while let Some(a) = sums.pop() {
-            // We only grow, so if we're too big we're done
-            if a > goal {
-                continue;
+        while let Some(total) = sums.pop() {
+            if total % d == 0 {
+                next.push(total / d);
             }
-            next.push(a + b);
-            next.push(a * b);
-            let s = format!("{a}{b}");
-            let n: Num = s
-                .parse()
-                .expect("concatenating two numbers results in a number");
-            next.push(n);
+            if total > d {
+                next.push(total - d);
+            }
+            if let Some(n) = last_digits(total, d) {
+                next.push(n);
+            }
         }
         sums = next;
     }
-    if sums.contains(&goal) {
+    if sums.contains(&first) {
         goal
     } else {
         0
