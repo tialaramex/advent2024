@@ -42,7 +42,7 @@ fn check(map: &Bunny, anti: &mut Anti, ch: char) {
 }
 
 fn find_anti_nodes(map: &Bunny) -> Anti {
-    let mut anti: Anti = Map::new();
+    let mut anti: Anti = Map::ranged(map.x(), map.y());
     for symbol in ('0'..='9').chain('a'..='z').chain('A'..='Z') {
         check(map, &mut anti, symbol);
     }
@@ -77,7 +77,7 @@ fn consider_resonance(map: &Bunny) -> Anti {
     let width = 1 + bx - ax;
     let height = 1 + by - ay;
     let diameter = core::cmp::max(width, height);
-    let mut anti: Anti = Map::new();
+    let mut anti: Anti = Map::ranged(map.x(), map.y());
     for symbol in ('0'..='9').chain('a'..='z').chain('A'..='Z') {
         resonant(map, &mut anti, diameter, symbol);
     }
