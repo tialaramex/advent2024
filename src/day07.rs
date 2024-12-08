@@ -54,7 +54,7 @@ fn last_digits(n: Num, d: Num) -> Option<Num> {
     while decimal <= d {
         decimal *= 10;
     }
-    if n > decimal && n % decimal == d {
+    if n >= decimal && n % decimal == d {
         Some(n / decimal)
     } else {
         None
