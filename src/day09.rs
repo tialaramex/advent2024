@@ -113,37 +113,40 @@ impl Diskmap {
         }
     }
 
-    fn last_file_id(&self) -> Option<Num> {
+    // Assumes all files are contiguous, so, don't use after self.crush
+    fn file_ids(&self) -> Vec<(Num, usize, usize)> {
+        let mut v = Vec::new();
         let mut last: Option<Num> = None;
+
+        let mut length = 0;
+        let mut n = 0;
         for block in self.v.iter() {
             match (block.id(), last) {
-                (None, _) => (),
+                (None, None) => (),
+                (None, Some(id)) => {
+                    v.push((id, n - length, length));
+                    last = None;
+                }
                 (Some(id), None) => {
                     last = Some(id);
+                    length = 1;
                 }
                 (Some(id1), Some(id2)) => {
-                    if id1 > id2 {
+                    if id1 != id2 {
+                        v.push((id2, n - length, length));
                         last = Some(id1);
+                        length = 1;
+                    } else {
+                        length += 1;
                     }
                 }
             }
+            n += 1;
         }
-        last
-    }
-
-    // Offset and length of file block
-    fn find_by_id(&self, id: Num) -> (usize, usize) {
-        let first = self
-            .v
-            .iter()
-            .position(|block| block.id() == Some(id))
-            .unwrap();
-
-        let mut length = 0;
-        while first + length < self.v.len() && self.v[first + length].id() == Some(id) {
-            length += 1;
+        if let Some(id) = last {
+            v.push((id, n - length, length));
         }
-        (first, length)
+        v
     }
 
     // Offset of free block at least blocks wide
@@ -169,31 +172,22 @@ impl Diskmap {
         None
     }
 
-    fn swap(&mut self, from: usize, to: usize, length: usize) {
+    fn file_move(&mut self, from: usize, to: usize, length: usize) {
         for k in 0..length {
             self.v.swap(from + k, to + k);
         }
     }
 
     fn defrag(&mut self) {
-        let Some(mut id) = self.last_file_id() else {
-            // No files, done
-            return;
-        };
+        let mut v = self.file_ids();
+        v.sort_unstable();
 
-        loop {
-            let (from, len) = self.find_by_id(id);
-
+        while let Some((_, from, len)) = v.pop() {
             if let Some(to) = self.find_free(len) {
                 if to < from {
-                    self.swap(from, to, len);
+                    self.file_move(from, to, len);
                 }
             }
-
-            if id == 0 {
-                break;
-            }
-            id -= 1;
         }
     }
 }
