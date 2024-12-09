@@ -33,7 +33,7 @@ enum Direction {
 }
 
 impl Direction {
-    fn turn(self) -> Self {
+    const fn turn(self) -> Self {
         use Direction::*;
 
         match self {
@@ -44,7 +44,18 @@ impl Direction {
         }
     }
 
-    fn go(&self) -> (isize, isize) {
+    const fn bits(&self) -> u8 {
+        use Direction::*;
+
+        match self {
+            North => 1,
+            East => 2,
+            South => 4,
+            West => 8,
+        }
+    }
+
+    const fn go(&self) -> (isize, isize) {
         use Direction::*;
 
         match self {
@@ -57,14 +68,14 @@ impl Direction {
 }
 
 fn loops(lab: &mut Lab) -> bool {
+    use Direction::*;
+    let mut d = North;
+
     let guards = lab.find(|l| l == Legend::Guard);
     assert_eq!(guards.len(), 1);
     let (mut x, mut y) = guards[0];
     // Now that we know where the guard was, remove from map
     lab.write(x, y, Legend::Empty);
-
-    use Direction::*;
-    let mut d = North;
 
     loop {
         let mv = d.go();
@@ -73,21 +84,24 @@ fn loops(lab: &mut Lab) -> bool {
                 lab.write(x, y, Legend::Path(0));
                 return false;
             }
-            Some(Legend::Empty) => {
-                lab.write(x, y, Legend::Path(1));
-                x += mv.0;
-                y += mv.1;
-            }
-            Some(Legend::Path(prev)) => {
-                if prev >= 4 {
-                    return true;
-                }
-                lab.write(x, y, Legend::Path(prev + 1));
-                x += mv.0;
-                y += mv.1;
-            }
             Some(Legend::Obstacle) => {
                 d = d.turn();
+            }
+            Some(Legend::Empty) | Some(Legend::Path(_)) => {
+                match lab.read(x, y) {
+                    Some(Legend::Empty) => {
+                        lab.write(x, y, Legend::Path(d.bits()));
+                    }
+                    Some(Legend::Path(track)) => {
+                        if track & d.bits() != 0 {
+                            return true;
+                        }
+                        lab.write(x, y, Legend::Path(track | d.bits()));
+                    }
+                    _ => panic!("Should never happen, guard was stood somewhere impossible"),
+                }
+                x += mv.0;
+                y += mv.1;
             }
             Some(item) => panic!("Unexpected item on map {item:?}"),
         }
@@ -116,6 +130,8 @@ pub fn b(filename: &str) {
     let (gx, gy) = guards[0];
     let mut preview = lab.clone();
     assert!(!loops(&mut preview)); // The guard does not loop
+
+    // No point placing an obstacle where the guard never goes
     let possible = preview.find(|l| matches!(l, Legend::Path(_)));
 
     let mut places = 0;
