@@ -114,7 +114,7 @@ impl Diskmap {
     }
 
     // Assumes all files are contiguous, so, don't use after self.crush
-    fn file_ids(&self) -> Vec<(Num, usize, usize)> {
+    fn files(&self) -> Vec<(Num, usize, usize)> {
         let mut v = Vec::new();
         let mut last: Option<Num> = None;
 
@@ -149,27 +149,24 @@ impl Diskmap {
         v
     }
 
-    // Offset of free block at least blocks wide
-    fn find_free(&self, blocks: usize) -> Option<usize> {
-        let mut start = 0;
+    fn free_blocks(&self) -> Vec<(usize, usize)> {
+        let mut v = Vec::new();
+
         let mut length = 0;
-        let mut offset = 0;
+        let mut n = 0;
         for block in self.v.iter() {
-            offset += 1;
-            match block.id() {
-                None => {
-                    length += 1;
-                }
-                Some(_) => {
-                    start = offset;
-                    length = 0;
-                }
+            if block.id().is_none() {
+                length += 1;
+            } else if length > 0 {
+                v.push((n - length, length));
+                length = 0;
             }
-            if length >= blocks {
-                return Some(start);
-            }
+            n += 1;
         }
-        None
+        if length > 0 {
+            v.push((n - length, length));
+        }
+        v
     }
 
     fn file_move(&mut self, from: usize, to: usize, length: usize) {
@@ -179,14 +176,38 @@ impl Diskmap {
     }
 
     fn defrag(&mut self) {
-        let mut v = self.file_ids();
+        // Free list will only grow after the part we're actively changing
+        let mut free = self.free_blocks();
+        free.reverse();
+        let mut v = self.files();
         v.sort_unstable();
 
-        while let Some((_, from, len)) = v.pop() {
-            if let Some(to) = self.find_free(len) {
-                if to < from {
-                    self.file_move(from, to, len);
+        use std::cmp::Ordering::*;
+
+        let mut stack: Vec<(usize, usize)> = Vec::new();
+        while let Some((_, from, need)) = v.pop() {
+            while let Some((to, blocks)) = free.pop() {
+                if to > from {
+                    // No point moving later
+                    break;
                 }
+                match blocks.cmp(&need) {
+                    Greater => {
+                        self.file_move(from, to, need);
+                        free.push((to + need, blocks - need));
+                        break;
+                    }
+                    Equal => {
+                        self.file_move(from, to, need);
+                        break;
+                    }
+                    Less => {
+                        stack.push((to, blocks));
+                    }
+                }
+            }
+            while let Some((to, blocks)) = stack.pop() {
+                free.push((to, blocks));
             }
         }
     }
