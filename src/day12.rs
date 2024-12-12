@@ -71,22 +71,6 @@ pub fn a(filename: &str) {
     println!("Total price of fencing all regions: {price}");
 }
 
-fn measure(fence: &[(isize, isize, isize, isize)]) -> usize {
-    let mut length = 0;
-    let mut prev: Option<(isize, isize, isize, isize)> = None;
-    for (dx, dy, x, y) in fence {
-        if let Some((odx, ody, ox, oy)) = prev {
-            if odx != *dx || ody != *dy || ox != *x || oy + 1 != *y {
-                length += 1;
-            }
-        } else {
-            length += 1;
-        }
-        prev = Some((*dx, *dy, *x, *y));
-    }
-    length
-}
-
 pub fn b(filename: &str) {
     let ctxt = readfile(filename);
     let map: Farm = ctxt.value().parse().unwrap();
@@ -104,7 +88,7 @@ pub fn b(filename: &str) {
             }
             let mut edges: Vec<(isize, isize)> = Vec::new();
             let mut area = 0;
-            let mut fence: Vec<(isize, isize, isize, isize)> = Vec::new();
+            let mut corners = 0;
             edges.push((x, y));
             while let Some((x, y)) = edges.pop() {
                 if done.read(x, y).unwrap_or_default() {
@@ -112,25 +96,57 @@ pub fn b(filename: &str) {
                 }
                 area += 1;
                 done.write(x, y, true);
-                for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-                    match kind(&map, &done, x + dx, y + dy) {
-                        (false, c) if c == crop => {
-                            edges.push((x + dx, y + dy));
-                        }
-                        (true, c) if c == crop => (),
-                        (_, _) => {
-                            if dx == 0 {
-                                fence.push((dx, dy, y, x));
-                            } else {
-                                fence.push((dx, dy, x, y));
-                            }
-                        }
-                    }
+                let w = kind(&map, &done, x - 1, y);
+                let e = kind(&map, &done, x + 1, y);
+                let n = kind(&map, &done, x, y - 1);
+                let s = kind(&map, &done, x, y + 1);
+                if !w.0 && w.1 == crop {
+                    edges.push((x - 1, y));
+                }
+                if !e.0 && e.1 == crop {
+                    edges.push((x + 1, y));
+                }
+                if !n.0 && n.1 == crop {
+                    edges.push((x, y - 1));
+                }
+                if !s.0 && s.1 == crop {
+                    edges.push((x, y + 1));
+                }
+
+                // If two adjacent sides touch our own crop but the diagonal does not, that's a
+                // corner
+                if w.1 == crop && n.1 == crop && map.read(x - 1, y - 1).unwrap_or_default() != crop
+                {
+                    corners += 1;
+                }
+                if n.1 == crop && e.1 == crop && map.read(x + 1, y - 1).unwrap_or_default() != crop
+                {
+                    corners += 1;
+                }
+                if e.1 == crop && s.1 == crop && map.read(x + 1, y + 1).unwrap_or_default() != crop
+                {
+                    corners += 1;
+                }
+                if s.1 == crop && w.1 == crop && map.read(x - 1, y + 1).unwrap_or_default() != crop
+                {
+                    corners += 1;
+                }
+
+                // If neither adjacent side is our own crop, that's a corner too
+                if w.1 != crop && n.1 != crop {
+                    corners += 1;
+                }
+                if n.1 != crop && e.1 != crop {
+                    corners += 1;
+                }
+                if e.1 != crop && s.1 != crop {
+                    corners += 1;
+                }
+                if s.1 != crop && w.1 != crop {
+                    corners += 1;
                 }
             }
-            fence.sort_unstable();
-            let perimeter = measure(&fence);
-            price += area * perimeter;
+            price += area * corners;
         }
     }
     println!("Bulk discounted price of fencing all regions: {price}");
