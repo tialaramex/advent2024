@@ -9,6 +9,7 @@ mod day08;
 mod day09;
 mod day10;
 mod day11;
+mod day12;
 
 use history::days;
 
@@ -39,6 +40,7 @@ fn main() {
             day09,
             day10,
             day11,
+            day12,
         );
     } else {
         eprintln!("Provide a parameter specifying which day e.g. 1a means day 1, part A while 4b means day 4, part B.");
