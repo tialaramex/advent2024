@@ -217,8 +217,13 @@ impl<T: Copy + Default> Map<T> {
     }
 }
 
+pub trait Legend: Copy {
+    fn from_char(ch: char) -> Self;
+    fn to_char(self) -> char;
+}
+
 use std::fmt;
-impl<T: fmt::Debug + Copy + Default> fmt::Debug for Map<T> {
+impl<T: Legend + Default> fmt::Debug for Map<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
             "x: [ {} {}..={} {} ] ",
@@ -244,8 +249,8 @@ impl<T: fmt::Debug + Copy + Default> fmt::Debug for Map<T> {
         for row in from_y..=to_y {
             for col in from_x..=to_x {
                 let posn = row * self.x.size + col;
-                let s = format!("{:?}", self.data[posn as usize]);
-                f.write_str(&s)?;
+                let ch = self.data[posn as usize].to_char();
+                f.write_fmt(format_args!("{ch}"))?;
             }
             f.write_str("\n")?;
         }
@@ -278,8 +283,7 @@ use std::convert::Infallible;
 use std::str::FromStr;
 impl<T> FromStr for Map<T>
 where
-    char: Into<T>,
-    T: Copy + Default,
+    T: Legend + Default,
 {
     type Err = Infallible;
 
@@ -287,7 +291,7 @@ where
         let mut map = Self::rect((0, 0), (0, 0));
         for (row, line) in s.lines().enumerate() {
             for (col, ch) in line.chars().enumerate() {
-                let item = ch.into();
+                let item = Legend::from_char(ch);
                 map.write(col as isize, row as isize, item);
             }
         }
@@ -298,7 +302,7 @@ where
 #[cfg(test)]
 
 mod tests {
-    use crate::map::{Map, Plane};
+    use crate::map::{Legend, Map, Plane};
 
     #[derive(Copy, Clone, Debug, Default, PartialEq)]
     enum Maze {
@@ -310,12 +314,20 @@ mod tests {
 
     const MAZE: &str = include_str!("test-map.txt");
 
-    impl From<char> for Maze {
-        fn from(ch: char) -> Self {
+    impl Legend for Maze {
+        fn from_char(ch: char) -> Self {
             match ch {
                 '#' => Maze::Wall,
                 ' ' => Maze::Space,
                 _ => panic!("Impossible '{ch}'"),
+            }
+        }
+
+        fn to_char(self) -> char {
+            match self {
+                Maze::Wall => '#',
+                Maze::Space => ' ',
+                _ => panic!("Impossible '{self:?}"),
             }
         }
     }

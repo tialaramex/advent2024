@@ -8,12 +8,19 @@ enum Crop {
     Kind(u8),
 }
 
-impl From<char> for Crop {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Crop {
+    fn from_char(ch: char) -> Self {
         match ch {
             '.' => Crop::Empty,
             'A'..='Z' => Crop::Kind(ch as u8),
             _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Crop::Empty => '.',
+            Crop::Kind(ch) => ch as char,
         }
     }
 }

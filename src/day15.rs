@@ -10,14 +10,23 @@ enum Legend {
     Robot,
 }
 
-impl From<char> for Legend {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Legend {
+    fn from_char(ch: char) -> Self {
         match ch {
-            '#' => Legend::Wall,
-            '.' => Legend::Space,
-            'O' => Legend::Crate,
-            '@' => Legend::Robot,
+            '#' => Self::Wall,
+            '.' => Self::Space,
+            'O' => Self::Crate,
+            '@' => Self::Robot,
             _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Self::Wall => '#',
+            Self::Space => '.',
+            Self::Crate => 'O',
+            Self::Robot => '@',
         }
     }
 }
@@ -132,6 +141,29 @@ enum BigLegend {
     LCrate,
     RCrate,
     Robot,
+}
+
+impl history::map::Legend for BigLegend {
+    fn from_char(ch: char) -> Self {
+        match ch {
+            '#' => Self::Wall,
+            '.' => Self::Space,
+            '[' => Self::LCrate,
+            ']' => Self::RCrate,
+            '@' => Self::Robot,
+            _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Self::Wall => '#',
+            Self::Space => '.',
+            Self::LCrate => '[',
+            Self::RCrate => ']',
+            Self::Robot => '@',
+        }
+    }
 }
 
 type BigWarehouse = Map<BigLegend>;

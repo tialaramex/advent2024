@@ -11,14 +11,24 @@ enum Letter {
     S,
 }
 
-impl From<char> for Letter {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Letter {
+    fn from_char(ch: char) -> Self {
         match ch {
             'X' => Self::X,
             'M' => Self::M,
             'A' => Self::A,
             'S' => Self::S,
             _ => Self::Other,
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Self::X => 'X',
+            Self::M => 'M',
+            Self::A => 'A',
+            Self::S => 'S',
+            _ => '?',
         }
     }
 }

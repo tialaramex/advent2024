@@ -11,12 +11,21 @@ enum Legend {
     Path(u8),
 }
 
-impl From<char> for Legend {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Legend {
+    fn from_char(ch: char) -> Self {
         match ch {
             '.' => Self::Empty,
             '^' => Self::Guard,
             '#' => Self::Obstacle,
+            _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Self::Empty => '.',
+            Self::Guard => '^',
+            Self::Obstacle => '#',
             _ => panic!("Unexpected symbol on map"),
         }
     }

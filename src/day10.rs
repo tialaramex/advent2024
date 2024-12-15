@@ -4,12 +4,19 @@ use history::readfile;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 struct Elevation(Option<u8>);
 
-impl From<char> for Elevation {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Elevation {
+    fn from_char(ch: char) -> Self {
         match ch {
             '.' => Elevation(None),
             '0'..='9' => Elevation(Some(ch.to_digit(10).unwrap().try_into().unwrap())),
             _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Elevation(None) => '.',
+            Elevation(Some(digit)) => char::from_digit(digit as u32, 16).unwrap(),
         }
     }
 }

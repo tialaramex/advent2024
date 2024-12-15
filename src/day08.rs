@@ -9,11 +9,19 @@ enum Legend {
     Antenna(char),
 }
 
-impl From<char> for Legend {
-    fn from(ch: char) -> Self {
+impl history::map::Legend for Legend {
+    fn from_char(ch: char) -> Self {
         match ch {
             '.' => Self::Empty,
             '0'..='9' | 'a'..='z' | 'A'..='Z' => Self::Antenna(ch),
+            _ => panic!("Unexpected symbol on map"),
+        }
+    }
+
+    fn to_char(self) -> char {
+        match self {
+            Self::Empty => '.',
+            Self::Antenna(ch) => ch,
             _ => panic!("Unexpected symbol on map"),
         }
     }
