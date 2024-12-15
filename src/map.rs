@@ -1,11 +1,13 @@
 use std::ops::RangeInclusive;
 
-#[derive(Copy, Clone, Debug)]
+/// A Plane with size zero has no map cells inside it
+/// A Plane with size 1 has one map cell, start == end == offset
+#[derive(Copy, Clone, Debug, PartialEq)]
 struct Plane {
     size: isize,
     offset: isize,
-    start: isize, // Inclusive
-    end: isize,   // Inclusive
+    start: isize, // Inclusive, between offset and (size+offset-1) inclusive
+    end: isize,   // Inclusive, ditto, but also >= start
 }
 
 impl Plane {
@@ -16,7 +18,7 @@ impl Plane {
         let width = to - from;
         let mid = from + (width / 2);
         Self {
-            size: width,
+            size: width + 1,
             offset: from,
             start: mid,
             end: mid,
@@ -25,25 +27,33 @@ impl Plane {
 
     // Never shrink either end of the range, which might otherwise happen where Map::rect creates
     // large uninitialised Maps
-    fn expand(&self) -> Self {
+    fn expand(&self, new: isize) -> Self {
         const GROWTH: isize = 8;
+        debug_assert!(self.end - self.start < self.size);
 
-        let offset = if self.offset < self.start - GROWTH {
+        let start = if new < self.start { new } else { self.start };
+        let end = if new > self.end { new } else { self.end };
+
+        let offset = if self.offset < start - GROWTH {
             self.offset
         } else {
-            self.start - GROWTH
+            start - GROWTH
         };
-        let size = if self.size > self.end - offset + GROWTH {
+        let size = if self.size > end - offset + GROWTH {
             self.size
         } else {
-            self.end - offset + GROWTH // When actually growing this ends up adding GROWTH at both edges
+            end - offset + GROWTH // When actually growing this ends up adding GROWTH at both edges
         };
         Self {
             size,
             offset,
-            start: self.start,
-            end: self.end,
+            start,
+            end,
         }
+    }
+
+    fn inbound(&self, pos: isize) -> bool {
+        pos >= self.offset && pos < (self.offset + self.size)
     }
 }
 
@@ -94,16 +104,13 @@ impl<T: Copy + Default> Map<T> {
     }
 
     fn inbound(&self, x: isize, y: isize) -> bool {
-        x >= self.x.offset
-            && x < (self.x.offset + self.x.size)
-            && y >= self.y.offset
-            && y < (self.y.offset + self.y.size)
+        self.x.inbound(x) && self.y.inbound(y)
     }
 
     /// Grow Map by suitably expanding both planes and re-allocating, then copying
-    fn grow(&mut self) {
-        let new_x = self.x.expand();
-        let new_y = self.y.expand();
+    fn grow(&mut self, x: isize, y: isize) {
+        let new_x = self.x.expand(x);
+        let new_y = self.y.expand(y);
 
         let size = (new_x.size * new_y.size) as usize;
         let mut new_data = Vec::with_capacity(size);
@@ -112,9 +119,11 @@ impl<T: Copy + Default> Map<T> {
         let off_x = self.x.offset - new_x.offset;
         let off_y = self.y.offset - new_y.offset;
 
+        let right = self.x.end - self.x.offset + 1;
+        let bottom = self.y.end - self.y.offset + 1;
         // Perform copy
-        for y in 0..self.y.size {
-            for x in 0..self.x.size {
+        for y in 0..bottom {
+            for x in 0..right {
                 let from = y * self.x.size + x;
                 let dest = (y + off_y) * new_x.size + (x + off_x);
                 new_data[dest as usize] = self.data[from as usize];
@@ -127,18 +136,19 @@ impl<T: Copy + Default> Map<T> {
     }
 
     fn include(&mut self, x: isize, y: isize) {
-        if x < self.x.start {
-            self.x.start = x;
-        } else if x > self.x.end {
-            self.x.end = x;
-        }
-        if y < self.y.start {
-            self.y.start = y;
-        } else if y > self.y.end {
-            self.y.end = y;
-        }
-        if !self.inbound(x, y) {
-            self.grow();
+        if self.inbound(x, y) {
+            if x < self.x.start {
+                self.x.start = x;
+            } else if x > self.x.end {
+                self.x.end = x;
+            }
+            if y < self.y.start {
+                self.y.start = y;
+            } else if y > self.y.end {
+                self.y.end = y;
+            }
+        } else {
+            self.grow(x, y);
         }
     }
 
@@ -288,7 +298,7 @@ where
 #[cfg(test)]
 
 mod tests {
-    use crate::map::Map;
+    use crate::map::{Map, Plane};
 
     #[derive(Copy, Clone, Debug, Default, PartialEq)]
     enum Maze {
@@ -305,9 +315,118 @@ mod tests {
             match ch {
                 '#' => Maze::Wall,
                 ' ' => Maze::Space,
-                _ => panic!("Impossible"),
+                _ => panic!("Impossible '{ch}'"),
             }
         }
+    }
+
+    #[test]
+    fn zero_plane() {
+        let plane = Plane::from_to(0, 0);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 1,
+                offset: 0,
+                start: 0,
+                end: 0
+            }
+        );
+    }
+
+    #[test]
+    fn easy_planes() {
+        let plane = Plane::from_to(0, 9);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 10,
+                offset: 0,
+                start: 4,
+                end: 4
+            }
+        );
+        let plane = Plane::from_to(50, 59);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 10,
+                offset: 50,
+                start: 54,
+                end: 54
+            }
+        );
+        let plane = Plane::from_to(-59, -50);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 10,
+                offset: -59,
+                start: -55,
+                end: -55
+            }
+        );
+        let plane = Plane::from_to(-11, 52);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 64,
+                offset: -11,
+                start: 20,
+                end: 20
+            }
+        );
+    }
+
+    #[test]
+    fn auto_grow() {
+        let mut map: Map<u8> = Map::rect((0, 0), (20, 20));
+        map.write(0, 0, 2);
+        assert_eq!(map.count(|&i| i == &2), 1);
+        map.write(22, 2, 2);
+        assert_eq!(map.count(|&i| i == &2), 2);
+        map.write(2, 22, 2);
+        assert_eq!(map.count(|&i| i == &2), 3);
+    }
+
+    #[test]
+    fn expand_planes() {
+        let mut plane = Plane::from_to(0, 9);
+        plane = plane.expand(4);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 16,
+                offset: -4,
+                start: 4,
+                end: 4
+            }
+        );
+        let mut plane = Plane::from_to(50, 59);
+        plane = plane.expand(100);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 62,
+                offset: 46,
+                start: 54,
+                end: 100
+            }
+        );
+        let mut plane = Plane::from_to(-59, -50);
+        plane = plane.expand(-50);
+        assert_eq!(
+            plane,
+            Plane {
+                size: 21,
+                offset: -63,
+                start: -55,
+                end: -50
+            }
+        );
+        let before = Plane::from_to(-11, 52);
+        let after = before.expand(20);
+        assert_eq!(before, after);
     }
 
     #[test]
