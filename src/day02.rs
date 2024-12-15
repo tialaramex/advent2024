@@ -11,7 +11,7 @@ fn is_safe(mut n: impl Iterator<Item = Number>) -> bool {
         // Descending
         loop {
             let diff = a - b;
-            if (1..=3).contains(&diff) {
+            if !(1..=3).contains(&diff) {
                 return false;
             }
             a = b;
@@ -25,7 +25,7 @@ fn is_safe(mut n: impl Iterator<Item = Number>) -> bool {
         // Ascending
         loop {
             let diff = b - a;
-            if (1..=3).contains(&diff) {
+            if !(1..=3).contains(&diff) {
                 return false;
             }
             a = b;
