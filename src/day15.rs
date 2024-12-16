@@ -172,7 +172,7 @@ fn scale(from: Warehouse) -> BigWarehouse {
     let old_range = from.x();
     let lx = *old_range.start();
     let rx = *old_range.end();
-    let mut to: BigWarehouse = Map::ranged(lx..=(rx*3), from.y());
+    let mut to: BigWarehouse = Map::ranged(lx..=(rx * 3), from.y());
     for y in from.y() {
         for x in from.x() {
             match from.read(x, y) {
