@@ -117,14 +117,15 @@ pub trait State<T>: Copy + Eq + Hash {
         found
     }
 
-    /// Minimum Steps from initial until predicate is true
-    fn steps<P>(initial: Self, predicate: P, invariant: &T) -> usize
+    /// Minimum Steps from initial until predicate is true,
+    /// or None if that's not possible
+    fn steps<P>(initial: Self, predicate: P, invariant: &T) -> Option<usize>
     where
         P: Fn(&Self) -> bool,
         Self: std::fmt::Debug,
     {
         if predicate(&initial) {
-            return 0;
+            return Some(0);
         }
 
         let mut seen: HashSet<Self> = HashSet::new();
@@ -138,7 +139,7 @@ pub trait State<T>: Copy + Eq + Hash {
                 let more = state.next(invariant);
                 for state in more {
                     if predicate(&state) {
-                        return steps + 1;
+                        return Some(steps + 1);
                     }
                     if !seen.contains(&state) {
                         seen.insert(state);
@@ -147,7 +148,7 @@ pub trait State<T>: Copy + Eq + Hash {
                 }
             }
             if next.is_empty() {
-                panic!("No route to achieve predicate on {initial:?}");
+                return None;
             }
             steps += 1;
             current = next;
@@ -155,7 +156,8 @@ pub trait State<T>: Copy + Eq + Hash {
     }
 
     /// Best (fewest steps) number of State transitions from initial to goal
-    fn best(initial: Self, goal: Self, invariant: &T) -> usize
+    /// if any, otherwise None
+    fn best(initial: Self, goal: Self, invariant: &T) -> Option<usize>
     where
         Self: std::fmt::Debug,
     {
