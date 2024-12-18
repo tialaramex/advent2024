@@ -112,19 +112,38 @@ pub fn b(filename: &str) {
         }
         map.write(x, y, Byte::Corrupted);
     }
+
+    let mut coords: Vec<&str> = Vec::new();
+    let mut maps: Vec<Memory> = Vec::new();
     for line in lines {
         let (x, y) = read_coords(line);
         map.write(x, y, Byte::Corrupted);
+        maps.push(map.clone());
+        coords.push(line);
+    }
 
+    // There is at least one byte corrupted after we STOP in part A
+    assert!(!maps.is_empty());
+    let mut first = 0;
+    let mut last = maps.len() - 1;
+
+    while first < last {
+        let mid = (first + last) / 2;
         let start = Historians { x: 0, y: 0 };
         let end = Historians {
             x: EXIT.0,
             y: EXIT.1,
         };
 
-        if State::best(start, end, &map).is_none() {
-            println!("Co-ordinates of the first byte to make the exit unreachable: {line}");
-            return;
+        if State::best(start, end, &maps[mid]).is_some() {
+            first = mid + 1;
+        } else {
+            last = mid;
         }
     }
+
+    println!(
+        "Co-ordinates of the first byte to make the exit unreachable: {}",
+        coords[first]
+    );
 }
