@@ -24,7 +24,7 @@ pub struct Contents {
 }
 
 impl<'t> Contents {
-    pub fn lines(&'t self) -> impl Iterator<Item = &str> + use<'t> {
+    pub fn lines(&'t self) -> impl Iterator<Item = &'t str> {
         self.text.lines()
     }
 
@@ -41,7 +41,7 @@ impl<'t> Contents {
         self.text.trim().chars().map(|c| c.to_digit(10).unwrap())
     }
 
-    pub fn list(&'t self) -> impl Iterator<Item = &str> + use<'t> {
+    pub fn list(&'t self) -> impl Iterator<Item = &'t str> {
         self.text.trim().split(',')
     }
 
