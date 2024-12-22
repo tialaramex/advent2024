@@ -25,18 +25,26 @@ impl Starship {
             ('A', '>') => ["vA"].as_slice(),
             ('A', 'v') => ["v<A", "<vA"].as_slice(),
             ('A', '<') => ["v<<A"].as_slice(),
+
             ('<', 'A') => [">>^A"].as_slice(),
             ('<', '^') => [">^A"].as_slice(),
             ('<', 'v') => [">A"].as_slice(),
+
             ('>', 'A') => ["^A"].as_slice(),
             ('>', '^') => ["<^A", "^<A"].as_slice(),
             ('>', 'v') => ["<A"].as_slice(),
+
             ('^', 'A') => [">A"].as_slice(),
             ('^', '<') => ["v<A"].as_slice(),
             ('^', '>') => ["v>A", ">vA"].as_slice(),
+
             ('v', 'A') => ["^>A", ">^A"].as_slice(),
             ('v', '<') => ["<A"].as_slice(),
             ('v', '>') => [">A"].as_slice(),
+
+            ('<', '>') | ('>', '<') | ('^', 'v') | ('v', '^') => {
+                panic!("Contradictory movements '{prev}' and '{this}'")
+            }
             _ => panic!("Can't handle arrow '{prev}' to '{this}' yet"),
         };
         let mut shortest: Option<usize> = None;
@@ -135,7 +143,6 @@ impl Starship {
         length
     }
 }
-
 
 fn numeric(s: &str) -> Num {
     let front = s
