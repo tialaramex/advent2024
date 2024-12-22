@@ -2,6 +2,141 @@ use history::readfile;
 
 type Num = i32;
 
+use std::collections::HashMap;
+
+#[derive(Clone, Debug)]
+struct Starship {
+    depth: u8,
+    cache: HashMap<(u8, &'static str), usize>,
+}
+
+impl Starship {
+    fn new(depth: u8) -> Starship {
+        Starship {
+            depth,
+            cache: HashMap::new(),
+        }
+    }
+
+    fn arrow(&mut self, level: u8, prev: char, this: char) -> usize {
+        let patterns = match (prev, this) {
+            ('A', 'A') | ('<', '<') | ('>', '>') | ('^', '^') | ('v', 'v') => ["A"].as_slice(),
+            ('A', '^') => ["<A"].as_slice(),
+            ('A', '>') => ["vA"].as_slice(),
+            ('A', 'v') => ["v<A", "<vA"].as_slice(),
+            ('A', '<') => ["v<<A"].as_slice(),
+            ('<', 'A') => [">>^A"].as_slice(),
+            ('<', '^') => [">^A"].as_slice(),
+            ('<', 'v') => [">A"].as_slice(),
+            ('>', 'A') => ["^A"].as_slice(),
+            ('>', '^') => ["<^A", "^<A"].as_slice(),
+            ('>', 'v') => ["<A"].as_slice(),
+            ('^', 'A') => [">A"].as_slice(),
+            ('^', '<') => ["v<A"].as_slice(),
+            ('^', '>') => ["v>A", ">vA"].as_slice(),
+            ('v', 'A') => ["^>A", ">^A"].as_slice(),
+            ('v', '<') => ["<A"].as_slice(),
+            ('v', '>') => [">A"].as_slice(),
+            _ => panic!("Can't handle arrow '{prev}' to '{this}' yet"),
+        };
+        let mut shortest: Option<usize> = None;
+        for pattern in patterns {
+            let length = self.shortest(level - 1, pattern);
+            if let Some(s) = shortest {
+                if s > length {
+                    shortest = Some(length);
+                }
+            } else {
+                shortest = Some(length);
+            }
+        }
+        shortest.unwrap()
+    }
+
+    fn shortest(&mut self, level: u8, pattern: &'static str) -> usize {
+        debug_assert!(pattern.ends_with('A'));
+        // 1. Are we level 0? Use length of pattern
+        if level == 0 {
+            return pattern.len();
+        }
+
+        if let Some(&value) = self.cache.get(&(level, pattern)) {
+            return value;
+        }
+
+        // Calculate length
+        let mut length = 0;
+        let mut prev = 'A';
+        for ch in pattern.chars() {
+            length += self.arrow(level, prev, ch);
+            prev = ch;
+        }
+        // Write to cache
+        self.cache.insert((level, pattern), length);
+        length
+    }
+
+    // Starting at digit prev (or A), move to digit this (or A) and press A to press the digit
+    fn digit(&mut self, prev: char, this: char) -> usize {
+        let patterns = match (prev, this) {
+            ('A', '0') => ["<A"].as_slice(),
+            ('A', '1') => ["^<<A"].as_slice(),
+            ('A', '2') => ["^<A", "<^A"].as_slice(),
+            ('A', '3') => ["^A"].as_slice(),
+            ('A', '4') => ["^^<<A"].as_slice(),
+            ('A', '8') => ["<^^^A", "^^^<A"].as_slice(),
+            ('A', '9') => ["^^^A"].as_slice(),
+            ('0', 'A') => [">A"].as_slice(),
+            ('0', '2') => ["^A"].as_slice(),
+            ('0', '5') => ["^^A"].as_slice(),
+            ('0', '8') => ["^^^A"].as_slice(),
+            ('1', '2') => [">A"].as_slice(),
+            ('1', '6') => [">>^A", "^>>A"].as_slice(),
+            ('1', '7') => ["^^A"].as_slice(),
+            ('2', '0') => ["vA"].as_slice(),
+            ('2', '9') => ["^^>A", ">^^A"].as_slice(),
+            ('3', '7') => ["^^<<A", "<<^^A"].as_slice(),
+            ('4', '5') => [">A"].as_slice(),
+            ('5', 'A') => ["vv>A", ">vvA"].as_slice(),
+            ('5', '6') => [">A"].as_slice(),
+            ('6', 'A') => ["vvA"].as_slice(),
+            ('6', '9') => ["^A"].as_slice(),
+            ('7', '6') => [">>vA", "v>>A"].as_slice(),
+            ('7', '9') => [">>A"].as_slice(),
+            ('8', 'A') => ["vvv>A", ">vvvA"].as_slice(),
+            ('8', '0') => ["vvvA"].as_slice(),
+            ('9', 'A') => ["vvvA"].as_slice(),
+            ('9', '8') => ["<A"].as_slice(),
+            _ => panic!("Can't handle digit '{prev}' to '{this}' yet"),
+        };
+        let mut shortest: Option<usize> = None;
+        for pattern in patterns {
+            let length = self.shortest(self.depth, pattern);
+            if let Some(s) = shortest {
+                if s > length {
+                    shortest = Some(length);
+                }
+            } else {
+                shortest = Some(length);
+            }
+        }
+        shortest.unwrap()
+    }
+
+    fn number(&mut self, pattern: &str) -> usize {
+        debug_assert!(pattern.ends_with('A'));
+        // For each digit (A) -> 1 -> 2 -> 3 -> A
+        let mut length = 0;
+        let mut prev = 'A';
+        for this in pattern.chars() {
+            length += self.digit(prev, this);
+            prev = this;
+        }
+        length
+    }
+}
+
+
 fn numeric(s: &str) -> Num {
     let front = s
         .split(|c: char| !c.is_ascii_digit())
@@ -16,286 +151,22 @@ fn numeric(s: &str) -> Num {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum Corner {
-    None,
-    TopLeft,    // TopLeft caution: avoid dead corner, do D before L, R before U
-    BottomLeft, // BottomLeft caution: avoid dead corner, do U before L, R before D
-}
-
-fn row_col_digit(digit: char) -> (u8, u8) {
-    match digit {
-        'A' => (3, 4),
-        '0' => (2, 4),
-        '1' => (1, 3),
-        '2' => (2, 3),
-        '3' => (3, 3),
-        '4' => (1, 2),
-        '5' => (2, 2),
-        '6' => (3, 2),
-        '7' => (1, 1),
-        '8' => (2, 1),
-        '9' => (3, 1),
-        _ => panic!("{digit} is not on the keypad!"),
-    }
-}
-
-type Move = (u8, u8, u8, u8, Corner);
-
-fn move_to_strings(prefix: String, step: Move, answers: &mut Vec<String>) {
-    let (u, d, l, r, corner) = step;
-    match corner {
-        Corner::None => {
-            if l + r > 0 && u + d > 0 {
-                let mut this = prefix.clone();
-                match (l, r) {
-                    (0, 0) => (),
-                    (left, 0) => {
-                        for _ in 0..left {
-                            this.push('<');
-                        }
-                    }
-                    (0, right) => {
-                        for _ in 0..right {
-                            this.push('>');
-                        }
-                    }
-                    _ => panic!("Moving both left and right makes no sense"),
-                }
-                match (u, d) {
-                    (0, 0) => (),
-                    (up, 0) => {
-                        for _ in 0..up {
-                            this.push('^');
-                        }
-                    }
-                    (0, down) => {
-                        for _ in 0..down {
-                            this.push('v');
-                        }
-                    }
-                    _ => panic!("Moving both left and right makes no sense"),
-                }
-                this.push('A');
-                answers.push(this);
-            }
-            let mut this = prefix;
-            match (u, d) {
-                (0, 0) => (),
-                (up, 0) => {
-                    for _ in 0..up {
-                        this.push('^');
-                    }
-                }
-                (0, down) => {
-                    for _ in 0..down {
-                        this.push('v');
-                    }
-                }
-                _ => panic!("Moving both left and right makes no sense"),
-            }
-            match (l, r) {
-                (0, 0) => (),
-                (left, 0) => {
-                    for _ in 0..left {
-                        this.push('<');
-                    }
-                }
-                (0, right) => {
-                    for _ in 0..right {
-                        this.push('>');
-                    }
-                }
-                _ => panic!("Moving both left and right makes no sense"),
-            }
-            this.push('A');
-            answers.push(this);
-        }
-        Corner::TopLeft => {
-            let mut this = prefix;
-            match (u, d, l, r) {
-                (up, 0, 0, right) if up > 0 && right > 0 => {
-                    for _ in 0..right {
-                        this.push('>');
-                    }
-                    for _ in 0..up {
-                        this.push('^');
-                    }
-                }
-                (0, down, left, 0) if down > 0 && left > 0 => {
-                    for _ in 0..down {
-                        this.push('v');
-                    }
-                    for _ in 0..left {
-                        this.push('<');
-                    }
-                }
-                _ => unreachable!("To avoid TopLeft corner move R+U or D+L"),
-            }
-            this.push('A');
-            answers.push(this);
-        }
-        Corner::BottomLeft => {
-            let mut this = prefix;
-            match (u, d, l, r) {
-                (up, 0, left, 0) if up > 0 && left > 0 => {
-                    for _ in 0..up {
-                        this.push('^');
-                    }
-                    for _ in 0..left {
-                        this.push('<');
-                    }
-                }
-                (0, down, 0, right) if down > 0 && right > 0 => {
-                    for _ in 0..right {
-                        this.push('>');
-                    }
-                    for _ in 0..down {
-                        this.push('v');
-                    }
-                }
-                _ => unreachable!("To avoid BottomLeft corner move U+L or D+R"),
-            }
-            this.push('A');
-            answers.push(this);
-        }
-    }
-}
-
-fn move_strings(moves: &[Move]) -> Vec<String> {
-    let mut prefixes = vec![String::new()];
-    for step in moves {
-        let mut next = Vec::with_capacity(prefixes.len());
-        for prefix in prefixes {
-            move_to_strings(prefix, *step, &mut next);
-        }
-        prefixes = next;
-    }
-    prefixes
-}
-
-fn push_digits(s: &str) -> Vec<Move> {
-    let mut v = Vec::with_capacity(s.len());
-    let mut last = 'A';
-    for c in s.chars() {
-        v.push(push_digit(last, c));
-        last = c;
-    }
-    v
-}
-
-// (u,d,l,r) then press A
-// total moves always u + d + l + r + 1
-fn push_digit(from: char, to: char) -> Move {
-    let from = row_col_digit(from);
-    let to = row_col_digit(to);
-    let u = if from.1 > to.1 { from.1 - to.1 } else { 0 };
-    let d = if from.1 < to.1 { to.1 - from.1 } else { 0 };
-    let l = if from.0 > to.0 { from.0 - to.0 } else { 0 };
-
-    let r = if from.0 < to.0 { to.0 - from.0 } else { 0 };
-
-    let corner = match (from, to) {
-        ((1, _), (_, 4)) => Corner::BottomLeft,
-        ((_, 4), (1, _)) => Corner::BottomLeft,
-        _ => Corner::None,
-    };
-
-    (u, d, l, r, corner)
-}
-
-fn push_dirs(s: &str) -> Vec<Move> {
-    let mut v = Vec::with_capacity(s.len());
-    let mut last = 'A';
-    for c in s.chars() {
-        v.push(push_dir(last, c));
-        last = c;
-    }
-    v
-}
-
-// (u,d,l,r) then press A
-// total moves always u + d + l + r + 1
-fn push_dir(from: char, to: char) -> Move {
-    match (from, to) {
-        ('A', 'A') => (0, 0, 0, 0, Corner::None),
-        ('A', '^') => (0, 0, 1, 0, Corner::None),
-        ('A', '<') => (0, 1, 2, 0, Corner::TopLeft),
-        ('A', 'v') => (0, 1, 1, 0, Corner::None),
-        ('A', '>') => (0, 1, 0, 0, Corner::None),
-
-        ('^', 'A') => (0, 0, 0, 1, Corner::None),
-        ('^', '^') => (0, 0, 0, 0, Corner::None),
-        ('^', '<') => (0, 1, 1, 0, Corner::TopLeft),
-        ('^', 'v') => (0, 1, 0, 0, Corner::None),
-        ('^', '>') => (0, 1, 0, 1, Corner::None),
-
-        ('<', 'A') => (1, 0, 0, 2, Corner::TopLeft),
-        ('<', '^') => (1, 0, 0, 1, Corner::TopLeft),
-        ('<', '<') => (0, 0, 0, 0, Corner::None),
-        ('<', 'v') => (0, 0, 0, 1, Corner::None),
-        ('<', '>') => (0, 0, 0, 2, Corner::None),
-
-        ('v', 'A') => (1, 0, 0, 1, Corner::None),
-        ('v', '^') => (1, 0, 0, 0, Corner::None),
-        ('v', '<') => (0, 0, 1, 0, Corner::None),
-        ('v', 'v') => (0, 0, 0, 0, Corner::None),
-        ('v', '>') => (0, 0, 0, 1, Corner::None),
-
-        ('>', 'A') => (1, 0, 0, 0, Corner::None),
-        ('>', '^') => (1, 0, 1, 0, Corner::None),
-        ('>', '<') => (0, 0, 2, 0, Corner::None),
-        ('>', 'v') => (0, 0, 1, 0, Corner::None),
-        ('>', '>') => (0, 0, 0, 0, Corner::None),
-
-        _ => panic!("Directional keypad doesn't have '{from}' and '{to}'"),
-    }
-}
-
-fn shortest(s: &str) -> String {
-    let mut best: Option<String> = None;
-    let moves = push_digits(s);
-    let strings = move_strings(&moves);
-    for string in strings {
-        let moves = push_dirs(&string);
-        let strings = move_strings(&moves);
-        for string in strings {
-            let moves = push_dirs(&string);
-            let strings = move_strings(&moves);
-            for string in strings {
-                if let Some(ref good) = best {
-                    if good.len() > string.len() {
-                        best = Some(string);
-                    }
-                } else {
-                    best = Some(string);
-                }
-            }
-        }
-    }
-    if let Some(input) = best {
-        input
-    } else {
-        panic!("Somehow no possible inputs work");
-    }
-}
-
-fn complexity(s: &str) -> Num {
-    shortest(s)
-        .len()
-        .try_into()
-        .expect("length of the shortest input should fit")
-}
-
 pub fn a(filename: &str) {
     let ctxt = readfile(filename);
-    let sum: Num = ctxt
+    let mut ship = Starship::new(2);
+    let sum: usize = ctxt
         .lines()
-        .map(|line| numeric(line) * complexity(line))
+        .map(|line| numeric(line) as usize * ship.number(line))
         .sum();
-    println!("{sum}");
+    println!("The sum of complexities of the five codes is: {sum}");
 }
 
 pub fn b(filename: &str) {
-    let _ctxt = readfile(filename);
+    let ctxt = readfile(filename);
+    let mut ship = Starship::new(25);
+    let sum: usize = ctxt
+        .lines()
+        .map(|line| numeric(line) as usize * ship.number(line))
+        .sum();
+    println!("The new sum of complexities of the five codes is: {sum}");
 }
