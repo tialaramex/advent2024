@@ -49,7 +49,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 
 fn summarise_into(mut secret: Num, summary: &mut Summary) {
-    let mut done: HashSet<Pattern> = HashSet::new();
+    let mut done: HashSet<Pattern> = HashSet::with_capacity(2000);
     let mut p = price(secret);
     secret = evolve(secret);
     let mut next = price(secret);
@@ -96,21 +96,13 @@ pub fn b(filename: &str) {
         summarise_into(secret, &mut summary);
     }
     let mut most: Option<Num> = None;
-    for first in -9..=9 {
-        for second in -9..=9 {
-            for third in -9..=9 {
-                for fourth in -9..=9 {
-                    if let Some(&bananas) = summary.get(&(first, second, third, fourth)) {
-                        if let Some(old) = most {
-                            if old < bananas {
-                                most = Some(bananas);
-                            }
-                        } else {
-                            most = Some(bananas);
-                        }
-                    }
-                }
+    for &bananas in summary.values() {
+        if let Some(old) = most {
+            if old < bananas {
+                most = Some(bananas);
             }
+        } else {
+            most = Some(bananas);
         }
     }
     if let Some(bananas) = most {
