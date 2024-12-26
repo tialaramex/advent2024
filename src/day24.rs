@@ -5,14 +5,13 @@ use std::collections::HashMap;
 struct Id(u32);
 
 impl Id {
-    fn name_to_id(name: &str) -> Self {
+    const fn name_to_id(name: &str) -> Self {
         debug_assert!(name.len() == 3);
         let bytes = name.as_bytes();
         let id = (bytes[0] as u32 * 65536) + (bytes[1] as u32 * 256) + (bytes[2] as u32);
         Self(id)
     }
 
-    #[cfg(test)]
     fn id_to_name(self) -> String {
         debug_assert!(self.0 > 0x10101 && self.0 < 0x7f7f7f);
         let mut name = String::with_capacity(2);
@@ -95,17 +94,8 @@ impl Gate {
         None
     }
 
-    #[cfg(test)]
-    fn is_add_bit(&self) -> bool {
-        if self.kind != Kind::Xor {
-            false
-        } else if (self.left.prefix(b'x') && self.right.prefix(b'y'))
-            || (self.left.prefix(b'y') && self.right.prefix(b'x'))
-        {
-            true
-        } else {
-            false
-        }
+    fn has_inputs(&self, a: Id, b: Id) -> bool {
+        (self.left == a && self.right == b) | (self.right == a && self.left == b)
     }
 }
 
@@ -145,18 +135,68 @@ impl Device {
         }
     }
 
-    #[cfg(test)]
-    // Currentlu sets all 64 bits
-    fn set_number(&mut self, prefix: &str, n: u64) {
-        for d in 0..64 {
-            let wire = format!("{prefix}{d:02}");
-            let wire = Id::name_to_id(&wire);
-            if (n & (1 << d)) == 0 {
-                self.wires.insert(wire, false);
-            } else {
-                self.wires.insert(wire, true);
+    fn find_gate(&self, a: Id, b: Id, kind: Kind) -> Option<Gate> {
+        for gate in self.gates.iter() {
+            if gate.kind == kind && gate.has_inputs(a, b) {
+                return Some(*gate);
             }
         }
+        None
+    }
+
+    // Either Ok(()) OR
+    // Err((a,b)) where a, b are wires to try swapping
+    fn check(&self) -> Result<(), (String, String)> {
+        let x0 = Id::name_to_id("x00");
+        let y0 = Id::name_to_id("y00");
+        let z0 = Id::name_to_id("z00");
+        // One, check half adder x0 XOR y0 -> z0
+        let first_half = self
+            .find_gate(x0, y0, Kind::Xor)
+            .expect("This should be a half adder");
+        if first_half.out != z0 {
+            return Err((first_half.out.id_to_name(), "z00".to_owned()));
+        }
+
+        // Two, loop checking adders
+        let mut carry = self
+            .find_gate(x0, y0, Kind::And)
+            .expect("Even Half Adders need carry bits");
+        for bit in 1..64 {
+            let x = Id::name_to_id(&format!("x{bit:02}"));
+            let y = Id::name_to_id(&format!("y{bit:02}"));
+            let z = Id::name_to_id(&format!("z{bit:02}"));
+
+            // A: find sum xN XOR yN -> sN
+            if let Some(sum) = self.find_gate(x, y, Kind::Xor) {
+                // B: find new carry xN AND yN -> cN
+                let new_carry = self
+                    .find_gate(x, y, Kind::And)
+                    .expect("If there's a sum there should be a new carry");
+                match self.find_gate(sum.out, carry.out, Kind::Xor) {
+                    Some(new_bit) => {
+                        if new_bit.out != z {
+                            // Try swapping new_bit with zN
+                            return Err((new_bit.out.id_to_name(), format!("z{bit:02}")));
+                        }
+                    }
+                    None => {
+                        // Try swapping new_carry with sum
+                        return Err((sum.out.id_to_name(), new_carry.out.id_to_name()));
+                    }
+                }
+                let step = self
+                    .find_gate(sum.out, carry.out, Kind::And)
+                    .expect("sum.out AND carry.out should exist too");
+                carry = self
+                    .find_gate(step.out, new_carry.out, Kind::Or)
+                    .expect("Hmmmm?");
+            } else {
+                // Last bit, just the carry? No problems here in my input
+                return Ok(());
+            }
+        }
+        panic!("Checking not yet ready for large circuits");
     }
 
     fn number(&self, prefix: &str) -> u64 {
@@ -178,34 +218,6 @@ impl Device {
         let mut remaining = self.gates.clone();
         while !remaining.is_empty() {
             remaining.retain(|gate| gate.operate(&mut self.wires));
-        }
-    }
-
-    #[cfg(test)]
-    fn wire_backtrace(&self, wire: &str) {
-        let wire_id = Id::name_to_id(wire);
-        for gate in &self.gates {
-            if gate.out == wire_id {
-                let left = gate.left.id_to_name();
-                let right = gate.right.id_to_name();
-                let kind = gate.kind;
-                if gate.is_add_bit() {
-                    println!("{wire}: ADD BIT {left} {kind:?} {right}");
-                } else {
-                    println!("{wire}: {left} {kind:?} {right}");
-                    self.wire_backtrace(&left);
-                    self.wire_backtrace(&right);
-                }
-            }
-        }
-    }
-
-    #[cfg(test)]
-    fn wire_dump(&self) {
-        for (id, val) in self.wires.iter() {
-            let name = id.id_to_name();
-            let val = if *val { 1 } else { 0 };
-            println!("{name}: {val}");
         }
     }
 
@@ -249,11 +261,12 @@ pub fn a(filename: &str) {
 pub fn b(filename: &str) {
     let mut dev = Device::parse(filename);
 
-    let mut swaps = ["z36", "nwq", "z18", "fvw", "z22", "mdb", "grf", "wpq"];
-    dev.swap(swaps[0], swaps[1]);
-    dev.swap(swaps[2], swaps[3]);
-    dev.swap(swaps[4], swaps[5]);
-    dev.swap(swaps[6], swaps[7]);
+    let mut swaps: Vec<String> = Vec::new();
+    while let Err((a, b)) = dev.check() {
+        dev.swap(&a, &b);
+        swaps.push(a);
+        swaps.push(b);
+    }
 
     let x = dev.number("x");
     let y = dev.number("y");
