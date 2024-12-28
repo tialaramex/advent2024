@@ -190,7 +190,7 @@ impl Device {
                     .expect("sum.out AND carry.out should exist too");
                 carry = self
                     .find_gate(step.out, new_carry.out, Kind::Or)
-                    .expect("Hmmmm?");
+                    .expect("step.out OR new_carry.out should also exist");
             } else {
                 // Last bit, just the carry? No problems here in my input
                 return Ok(());
