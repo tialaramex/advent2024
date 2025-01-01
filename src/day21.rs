@@ -84,39 +84,76 @@ impl Starship {
         length
     }
 
+    const fn rowcol(d: char) -> (i8, i8) {
+        match d {
+            'A' => (4, 3),
+            '0' => (4, 2),
+            '1' => (3, 1),
+            '2' => (3, 2),
+            '3' => (3, 3),
+            '4' => (2, 1),
+            '5' => (2, 2),
+            '6' => (2, 3),
+            '7' => (1, 1),
+            '8' => (1, 2),
+            '9' => (1, 3),
+            _ => panic!("Invalid digit position"),
+        }
+    }
+
     // Starting at digit prev (or A), move to digit this (or A) and press A to press the digit
     fn digit(&mut self, prev: char, this: char) -> usize {
-        let patterns = match (prev, this) {
-            ('A', '0') => ["<A"].as_slice(),
-            ('A', '1') => ["^<<A"].as_slice(),
-            ('A', '2') => ["^<A", "<^A"].as_slice(),
-            ('A', '3') => ["^A"].as_slice(),
-            ('A', '4') => ["^^<<A"].as_slice(),
-            ('A', '8') => ["<^^^A", "^^^<A"].as_slice(),
-            ('A', '9') => ["^^^A"].as_slice(),
-            ('0', 'A') => [">A"].as_slice(),
-            ('0', '2') => ["^A"].as_slice(),
-            ('0', '5') => ["^^A"].as_slice(),
-            ('0', '8') => ["^^^A"].as_slice(),
-            ('1', '2') => [">A"].as_slice(),
-            ('1', '6') => [">>^A", "^>>A"].as_slice(),
-            ('1', '7') => ["^^A"].as_slice(),
-            ('2', '0') => ["vA"].as_slice(),
-            ('2', '9') => ["^^>A", ">^^A"].as_slice(),
-            ('3', '7') => ["^^<<A", "<<^^A"].as_slice(),
-            ('4', '5') => [">A"].as_slice(),
-            ('5', 'A') => ["vv>A", ">vvA"].as_slice(),
-            ('5', '6') => [">A"].as_slice(),
-            ('6', 'A') => ["vvA"].as_slice(),
-            ('6', '9') => ["^A"].as_slice(),
-            ('7', '6') => [">>vA", "v>>A"].as_slice(),
-            ('7', '9') => [">>A"].as_slice(),
-            ('8', 'A') => ["vvv>A", ">vvvA"].as_slice(),
-            ('8', '0') => ["vvvA"].as_slice(),
-            ('9', 'A') => ["vvvA"].as_slice(),
-            ('9', '8') => ["<A"].as_slice(),
-            _ => panic!("Can't handle digit '{prev}' to '{this}' yet"),
+        let from = Self::rowcol(prev);
+        let to = Self::rowcol(this);
+
+        let mut patterns = match (to.0 - from.0, to.1 - from.1) {
+            (-3, -2) => ["^^^<<A"].as_slice(),
+            (-3, -1) => ["^^^<A", "<^^^A"].as_slice(),
+            (-3, 0) => ["^^^A"].as_slice(),
+            (-3, 1) => ["^^^>A", ">^^^A"].as_slice(),
+
+            (-2, -2) => ["^^<<A", "<<^^A"].as_slice(),
+            (-2, -1) => ["^^<A", "<^^A"].as_slice(),
+            (-2, 0) => ["^^A"].as_slice(),
+            (-2, 1) => ["^^>A", ">^^A"].as_slice(),
+            (-2, 2) => ["^^>>A", ">>^^A"].as_slice(),
+
+            (-1, -2) => ["^<<A", "<<^A"].as_slice(),
+            (-1, -1) => ["^<A", "<^A"].as_slice(),
+            (-1, 0) => ["^A"].as_slice(),
+            (-1, 1) => ["^>A", ">^A"].as_slice(),
+            (-1, 2) => ["^>>A", ">>^A"].as_slice(),
+
+            (0, -2) => ["<<A"].as_slice(),
+            (0, -1) => ["<A"].as_slice(),
+            (0, 0) => ["A"].as_slice(),
+            (0, 1) => [">A"].as_slice(),
+            (0, 2) => [">>A"].as_slice(),
+
+            (1, -2) => ["v<<A", "<<vA"].as_slice(),
+            (1, -1) => ["v<A", "<vA"].as_slice(),
+            (1, 0) => ["vA"].as_slice(),
+            (1, 1) => [">vA", "v>A"].as_slice(),
+            (1, 2) => [">>vA", "v>>A"].as_slice(),
+
+            (2, -2) => ["vv<<A", "<<vvA"].as_slice(),
+            (2, -1) => ["vv<A", "<vvA"].as_slice(),
+            (2, 0) => ["vvA"].as_slice(),
+            (2, 1) => [">vvA", "vv>A"].as_slice(),
+            (2, 2) => [">>vvA", "vv>>A"].as_slice(),
+
+            (3, -1) => ["vvv<A", "<vvvA"].as_slice(),
+            (3, 0) => ["vvvA"].as_slice(),
+            (3, 1) => [">vvvA", "vvv>A"].as_slice(),
+            (3, 2) => [">>vvvA"].as_slice(),
+            _ => unreachable!("Should not be any cases where we don't match now"),
         };
+
+        // Avoid bottom left corner
+        if (from.0 == 4 && to.1 == 1) || (from.1 == 1 && to.0 == 4) {
+            patterns = &patterns[..1];
+        }
+
         let mut shortest: Option<usize> = None;
         for pattern in patterns {
             let length = self.shortest(self.depth, pattern);
