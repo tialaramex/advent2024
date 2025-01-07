@@ -225,20 +225,22 @@ pub trait Legend: Copy {
 use std::fmt;
 impl<T: Legend + Default> fmt::Debug for Map<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
+        write!(
+            f,
             "x: [ {} {}..={} {} ] ",
             self.x.offset,
             self.x.start,
             self.x.end,
             self.x.offset + self.x.size
-        ))?;
-        f.write_fmt(format_args!(
-            "y: [ {} {}..={} {} ]\n",
+        )?;
+        writeln!(
+            f,
+            "y: [ {} {}..={} {} ]",
             self.y.offset,
             self.y.start,
             self.y.end,
             self.y.offset + self.y.size
-        ))?;
+        )?;
         let from_y = self.y.start - self.y.offset;
         let from_x = self.x.start - self.x.offset;
         let to_y = self.y.size - (self.y.offset + self.y.size - self.y.end);
@@ -250,7 +252,7 @@ impl<T: Legend + Default> fmt::Debug for Map<T> {
             for col in from_x..=to_x {
                 let posn = row * self.x.size + col;
                 let ch = self.data[posn as usize].to_char();
-                f.write_fmt(format_args!("{ch}"))?;
+                write!(f, "{ch}")?;
             }
             f.write_str("\n")?;
         }

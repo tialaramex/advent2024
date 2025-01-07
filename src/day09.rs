@@ -29,7 +29,7 @@ impl Debug for Block {
             None => f.write_str("."),
             Some(id) => {
                 if id < 10 {
-                    f.write_fmt(format_args!("{}", id))
+                    write!(f, "{id}")
                 } else {
                     f.write_str("X")
                 }
